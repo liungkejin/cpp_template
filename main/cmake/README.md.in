@@ -1,0 +1,21 @@
+
+# Usage
+
+## 导入库
+
+在其他工程中使用 `@MAIN_TARGET@` 库时，需要先导入库。
+可以在 `CMakeLists.txt` 中添加以下代码：
+
+```cmake
+include(path/to/z-import.cmake)
+z_import_my_package(@MAIN_TARGET@)
+```
+
+## 链接库
+
+在其他工程中使用 `@MAIN_TARGET@` 库时，需要链接库。
+可以在 `CMakeLists.txt` 中添加以下代码：
+
+```cmake
+target_link_libraries(your_target @MAIN_TARGET@)
+```

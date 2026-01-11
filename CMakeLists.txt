@@ -55,6 +55,16 @@ z_install_files_default(
         ${MAIN_DIR}/cmake/exports/z-functions.cmake
 )
 
+# 配置并安装 README.md
+configure_file(
+        "${MAIN_DIR}/cmake/README.md.in"
+        "${CMAKE_BINARY_DIR}/README.md"
+        @ONLY
+)
+# 安装生成后的文件
+install(FILES "${CMAKE_BINARY_DIR}/README.md"
+        DESTINATION .)
+
 # sample 目标
 add_executable(${MAIN_TARGET}-sample samples/src/main.cpp)
 target_link_libraries(${MAIN_TARGET}-sample PRIVATE ${MAIN_TARGET})

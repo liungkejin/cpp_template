@@ -9,4 +9,6 @@
 class Platform {
 public:
     static std::string name();
+
+    static std::string hello();
 };

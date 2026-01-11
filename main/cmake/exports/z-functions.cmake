@@ -3,7 +3,7 @@
 ##
 
 # 获取系统信息
-# out_name: 输出的系统名称 [ android | harmony | win32 | linux | macos ]
+# out_name: 输出的系统名称 [ android | harmony | windows | linux | macos ]
 # out_arch: 输出的系统架构 [ x86 | x64 | arm | arm64 | universal ]
 # 平台判断可以使用 ZANDROID | ZOHOS | ZIOS | ZLINUX | ZMACOS | ZWINDOWS | ZDESKTOP
 function(z_get_sys_info out_name out_arch)
@@ -33,7 +33,7 @@ function(z_get_sys_info out_name out_arch)
                 set(target_arch ${CMAKE_OSX_ARCHITECTURES})
             endif ()
         elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL Windows)
-            set(${out_name} "win32" PARENT_SCOPE)
+            set(${out_name} "windows" PARENT_SCOPE)
             set(ZWINDOWS ON PARENT_SCOPE)
         else ()
             message(FATAL_ERROR "Unknown system: ${CMAKE_HOST_SYSTEM_NAME}")
@@ -166,22 +166,29 @@ function(z_install_includes_default)
 endfunction()
 
 ## 为目标添加 include 目录并安装头文件
-## 头文件的安装目录是 install_dir/../include/
+## target_name 目标名称
+## install_dir 安装目录
+## include_dir 头文件目录
+## install_interface 安装接口目录 就是在使用的时候，include 目录相对 install_dir 的路径
 ## usage:
-## z_target_include_and_install(${MAIN_TARGET} ${CMAKE_INSTALL_INCLUDEDIR} "include/")
-function(z_target_include_and_install target_name install_dir include_dir)
+## z_target_include_and_install(${MAIN_TARGET} install/include/${MAIN_TARGET} "include/" "../include/${MAIN_TARGET}")
+## 这个示例是假设安装后的 cmake 配置目录是 install/cmake/ , include 安装后的目录相对 install/cmake/ 是 ../include/${MAIN_TARGET}
+function(z_target_include_and_install target_name install_dir include_dir install_interface)
     target_include_directories(${target_name} PUBLIC
             $<BUILD_INTERFACE:${include_dir}>
-            $<INSTALL_INTERFACE:../include/>
+            $<INSTALL_INTERFACE:${install_interface}>
     )
-    z_install_includes(${install_dir} "${include_dir}/" ${ARGN})
+    z_install_includes(${install_dir} "${include_dir}/")
 endfunction()
 
 ## 默认安装到 CMAKE_INSTALL_INCLUDEDIR 目录
+## 目录结构是:
+## /cmake/
+## /include/${target_name}/
 ## usage:
 ## z_target_include_and_install_default(${MAIN_TARGET} "include/")
 function(z_target_include_and_install_default target_name include_dir)
-    z_target_include_and_install(${target_name} ${CMAKE_INSTALL_INCLUDEDIR} ${include_dir} ${ARGN})
+    z_target_include_and_install(${target_name} ${CMAKE_INSTALL_INCLUDEDIR}/${target_name} ${include_dir} "../include/${target_name}")
 endfunction()
 
 # import static library

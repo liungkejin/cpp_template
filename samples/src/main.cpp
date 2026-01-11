@@ -3,7 +3,7 @@
 
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
     std::cout << "Platform: " << Platform::name() << std::endl;
+    std::cout << Platform::hello() << std::endl;
     return 0;
 }

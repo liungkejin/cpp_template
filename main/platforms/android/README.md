@@ -1,1 +1,1 @@
-# 针对 Android 平台的库
+# 针对 Android 平台的代码
