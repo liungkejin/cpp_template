@@ -53,6 +53,7 @@ z_install_target(${MAIN_TARGET})
 z_install_files_default(
         ${MAIN_DIR}/cmake/exports/z-import.cmake
         ${MAIN_DIR}/cmake/exports/z-functions.cmake
+        ${MAIN_DIR}/cmake/CMakeRC.cmake
 )
 
 # 配置并安装 README.md
