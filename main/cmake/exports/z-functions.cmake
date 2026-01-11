@@ -165,30 +165,15 @@ function(z_install_includes_default)
     z_install_includes(${CMAKE_INSTALL_INCLUDEDIR} ${ARGN})
 endfunction()
 
-## 为目标添加 include 目录并安装头文件
-## target_name 目标名称
-## install_dir 安装目录
-## include_dir 头文件目录
-## install_interface 安装接口目录 就是在使用的时候，include 目录相对 install_dir 的路径
-## usage:
-## z_target_include_and_install(${MAIN_TARGET} install/include/${MAIN_TARGET} "include/" "../include/${MAIN_TARGET}")
-## 这个示例是假设安装后的 cmake 配置目录是 install/cmake/ , include 安装后的目录相对 install/cmake/ 是 ../include/${MAIN_TARGET}
-function(z_target_include_and_install target_name install_dir include_dir install_interface)
+## 封装 target_include_directories
+## BUILD_INTERFACE: 编译时使用的 include 目录
+## INSTALL_INTERFACE: 安装后使用的 include 目录 这个体现在 xxx-config.cmake 中
+## 假设安装后的 cmake 配置目录是 install/cmake/ , include 安装后的目录相对 install/cmake/ 是 ../include/${MAIN_TARGET}
+function(z_target_include_public_interface target_name include_dir install_interface)
     target_include_directories(${target_name} PUBLIC
             $<BUILD_INTERFACE:${include_dir}>
             $<INSTALL_INTERFACE:${install_interface}>
     )
-    z_install_includes(${install_dir} "${include_dir}/")
-endfunction()
-
-## 默认安装到 CMAKE_INSTALL_INCLUDEDIR 目录
-## 目录结构是:
-## /cmake/
-## /include/${target_name}/
-## usage:
-## z_target_include_and_install_default(${MAIN_TARGET} "include/")
-function(z_target_include_and_install_default target_name include_dir)
-    z_target_include_and_install(${target_name} ${CMAKE_INSTALL_INCLUDEDIR}/${target_name} ${include_dir} "../include/${target_name}")
 endfunction()
 
 # import static library

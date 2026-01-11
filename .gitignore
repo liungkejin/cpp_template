@@ -1,3 +1,5 @@
 .idea
 build/
 install/
+.DS_Store
+__MACOSX/
