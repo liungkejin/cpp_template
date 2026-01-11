@@ -67,6 +67,8 @@ endfunction()
 
 # 获取系统信息
 z_get_sys_info(ZPLATFORM ZTARGET_ARCH)
+message(STATUS "====== ZPLATFORM: ${ZPLATFORM} ======")
+message(STATUS "====== ZTARGET_ARCH: ${ZTARGET_ARCH} ======")
 
 # 安装任意文件到 ${install_dir} 目录下
 # usage:
@@ -97,11 +99,15 @@ function(z_install_files install_dir)
     endforeach ()
 endfunction()
 
+function(z_install_files_default)
+    z_install_files(${CMAKE_INSTALL_PREFIX} ${ARGN})
+endfunction()
+
 ## 安装头文件
 ## usage：
 ## z_install_includes <dst dir> "/a/b/d->e/f"
 ## z_install_includes(${CMAKE_INSTALL_INCLUDEDIR} "/a/b/c/d->e/f"
-## "/a/b/d" 是路径
+## "/a/b/d" 是原路径
 ## "e/f" 是目标的相对路径即 install_dir/e/f 如果没有指定目标路径，默认安装到 install_dir
 function(z_install_includes install_dir)
     foreach (file ${ARGN})
@@ -145,8 +151,37 @@ function(z_install_includes install_dir)
 endfunction()
 
 ## 默认安装到 CMAKE_INSTALL_INCLUDEDIR 目录
+## usage:
+## z_install_includes_default("a/b/c.h" "a/b/d.h->e/f.h")
+#"${COMMON_SRC_PATH}/../ZNative.h->znative/"
+#"${COMMON_SRC_PATH}/Common.h->znative/common"
+#"${COMMON_SRC_PATH}/AppContext.h->znative/common"
+#"${COMMON_SRC_PATH}/base->znative/common"
+#"${COMMON_SRC_PATH}/fsys->znative/common"
+#"${COMMON_SRC_PATH}/thread->znative/common"
+#"${COMMON_SRC_PATH}/utils->znative/common"
+#"${COMMON_SRC_PATH}/media->znative/common"
 function(z_install_includes_default)
     z_install_includes(${CMAKE_INSTALL_INCLUDEDIR} ${ARGN})
+endfunction()
+
+## 为目标添加 include 目录并安装头文件
+## 头文件的安装目录是 install_dir/../include/
+## usage:
+## z_target_include_and_install(${MAIN_TARGET} ${CMAKE_INSTALL_INCLUDEDIR} "include/")
+function(z_target_include_and_install target_name install_dir include_dir)
+    target_include_directories(${target_name} PUBLIC
+            $<BUILD_INTERFACE:${include_dir}>
+            $<INSTALL_INTERFACE:../include/>
+    )
+    z_install_includes(${install_dir} "${include_dir}/" ${ARGN})
+endfunction()
+
+## 默认安装到 CMAKE_INSTALL_INCLUDEDIR 目录
+## usage:
+## z_target_include_and_install_default(${MAIN_TARGET} "include/")
+function(z_target_include_and_install_default target_name include_dir)
+    z_target_include_and_install(${target_name} ${CMAKE_INSTALL_INCLUDEDIR} ${include_dir} ${ARGN})
 endfunction()
 
 # import static library

@@ -7,6 +7,6 @@
 #include <string>
 
 class Platform {
-  public:
+public:
     static std::string name();
-  };
+};
