@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.18)
 ##
 ## cpp 模版工程，注意修改 cpp_template 为你自己的工程名称
 ##
