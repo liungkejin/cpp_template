@@ -393,7 +393,7 @@ function(z_embed_resources lib_name namespace whence)
 endfunction()
 
 function(z_embed_install_includes dstdir)
-    z_install_includes(${dstdir} ${CMAKE_CURRENT_BINARY_DIR}/_cmrc/include/)
+    z_install_includes(${dstdir} ${CMAKE_BINARY_DIR}/_cmrc/include/)
 endfunction()
 
 # 将资源文件嵌入到 ${target}-rc 中，并链接到 ${target}
@@ -407,7 +407,7 @@ function(z_embed_res_to_target target namespace whence)
     if (${first_create})
         target_link_libraries(${target} PUBLIC ${lib_name})
         z_install_target(${lib_name})
-        z_install_includes(${CMAKE_INSTALL_PREFIX}/include ${CMAKE_CURRENT_BINARY_DIR}/_cmrc/include/)
+        z_install_includes(${CMAKE_INSTALL_PREFIX}/include ${CMAKE_BINARY_DIR}/_cmrc/include/)
     endif ()
 endfunction()
 
