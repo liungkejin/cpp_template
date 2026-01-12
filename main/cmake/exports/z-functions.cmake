@@ -15,6 +15,7 @@ function(z_get_sys_info out_name out_arch)
         set(${out_name} "harmony" PARENT_SCOPE)
         set(${out_arch} ${OHOS_ARCH} PARENT_SCOPE)
         set(ZOHOS ON PARENT_SCOPE)
+        set(ZHARMONY ON PARENT_SCOPE)
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
         set(${out_name} "ios" PARENT_SCOPE)
         set(${out_arch} "arm64" PARENT_SCOPE)
@@ -103,7 +104,24 @@ function(z_install_files_default)
     z_install_files(${CMAKE_INSTALL_PREFIX} ${ARGN})
 endfunction()
 
-## 安装头文件
+## 安装头文件，支持目录和文件
+## usage：
+## z_install_single_include(<dst dir> <src path>)
+function(z_install_single_include dst_dir src_path)
+    if (IS_DIRECTORY ${src_path})
+        install(DIRECTORY ${src_path} DESTINATION ${dst_dir}
+                FILES_MATCHING PATTERN "*.h")
+        install(DIRECTORY ${src_path} DESTINATION ${dst_dir}
+                FILES_MATCHING PATTERN "*.hpp")
+    elseif (EXISTS ${src_path} OR EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src_path}")
+        # 如果是文件，使用 install(FILES) 安装
+        install(FILES ${src_path} DESTINATION ${dst_dir})
+    else ()
+        message(WARNING "${src_path} does not exist. Skipping installation.")
+    endif ()
+endfunction()
+
+## 安装头文件, 支持多个路径
 ## usage：
 ## z_install_includes <dst dir> "/a/b/d->e/f"
 ## z_install_includes(${CMAKE_INSTALL_INCLUDEDIR} "/a/b/c/d->e/f"
@@ -111,6 +129,14 @@ endfunction()
 ## "e/f" 是目标的相对路径即 install_dir/e/f 如果没有指定目标路径，默认安装到 install_dir
 function(z_install_includes install_dir)
     foreach (file ${ARGN})
+        # 判断 src_path 是否已经包含 $<BUILD_INTERFACE
+        # 如果包含 $<BUILD_INTERFACE 则不添加
+        if (file MATCHES "\\$\\<BUILD_INTERFACE:")
+            # 将 $<BUILD_INTERFACE:xxx> 中的 xxx 提取出来
+            string(REPLACE "$<BUILD_INTERFACE:" "" file ${file})
+        endif ()
+        string(REPLACE ">" "" file ${file})
+
         string(REPLACE "->" ";" file ${file})
         list(LENGTH file file_len)
         set(src_path ${file})
@@ -120,30 +146,22 @@ function(z_install_includes install_dir)
             list(GET file 1 dst_dir)
             set(dst_dir ${install_dir}/${dst_dir})
 
-            if (IS_DIRECTORY ${src_path})
-                install(DIRECTORY "${src_path}"
-                        DESTINATION ${dst_dir}
-                        FILES_MATCHING PATTERN "*.h")
-                install(DIRECTORY "${src_path}"
-                        DESTINATION ${dst_dir}
-                        FILES_MATCHING PATTERN "*.hpp")
-            elseif (EXISTS ${src_path} OR EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src_path}")
-                # 如果是文件，使用 install(FILES) 安装
-                install(FILES ${src_path} DESTINATION ${dst_dir})
+            # 如果 src_path 包含很多个路径，每个路径都需要安装
+            if (src_path MATCHES ";")
+                foreach (src ${src_path})
+                    z_install_single_include(${dst_dir} ${src})
+                endforeach ()
             else ()
-                message(WARNING "${src_path} does not exist. Skipping installation.")
+                z_install_single_include(${dst_dir} ${src_path})
             endif ()
         else ()
-            if (IS_DIRECTORY ${src_path})
-                install(DIRECTORY ${src_path} DESTINATION ${dst_dir}
-                        FILES_MATCHING PATTERN "*.h")
-                install(DIRECTORY ${src_path} DESTINATION ${dst_dir}
-                        FILES_MATCHING PATTERN "*.hpp")
-            elseif (EXISTS ${src_path} OR EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src_path}")
-                # 如果是文件，使用 install(FILES) 安装
-                install(FILES ${src_path} DESTINATION ${dst_dir})
+            # 如果 src_path 包含很多个路径，每个路径都需要安装
+            if (src_path MATCHES ";")
+                foreach (src ${src_path})
+                    z_install_single_include(${dst_dir} ${src})
+                endforeach ()
             else ()
-                message(WARNING "${src_path} does not exist. Skipping installation.")
+                z_install_single_include(${dst_dir} ${src_path})
             endif ()
         endif ()
 
@@ -165,15 +183,36 @@ function(z_install_includes_default)
     z_install_includes(${CMAKE_INSTALL_INCLUDEDIR} ${ARGN})
 endfunction()
 
-## 封装 target_include_directories
-## BUILD_INTERFACE: 编译时使用的 include 目录
-## INSTALL_INTERFACE: 安装后使用的 include 目录 这个体现在 xxx-config.cmake 中
-## 假设安装后的 cmake 配置目录是 install/cmake/ , include 安装后的目录相对 install/cmake/ 是 ../include/${MAIN_TARGET}
-function(z_target_include_public_interface target_name include_dir install_interface)
+## target public引用头文件，并安装到 install_dir (public应用意味着在安装之后也可以被其他应用引用)
+## 这个函数虽然也支持 $<BUILD_INTERFACE:${include_dir}> 方式引用头文件，
+## 但是对于 ${include_dir} 中存在多个路径的情况，则会在安装后的 INTERFACE_INCLUDE_DIRECTORIES 中包含一个 CMAKE_CURRENT_SOURCE_DIR 路径
+## usage:
+## z_target_include_public(<target_name> <install_dir> <include_dir1> <include_dir2> ...)
+function(z_target_include_public target_name install_dir)
+    z_install_includes(${install_dir} ${ARGN})
     target_include_directories(${target_name} PUBLIC
-            $<BUILD_INTERFACE:${include_dir}>
-            $<INSTALL_INTERFACE:${install_interface}>
+            ${ARGN}
     )
+    message(STATUS "z_target_include_public: ${target_name} ${ARGN} -> ${install_dir}")
+endfunction()
+
+function(z_target_include_public_default target_name)
+    z_target_include_public(${target_name} ${CMAKE_INSTALL_INCLUDEDIR} ${ARGN})
+endfunction()
+
+## target 使用 $<BUILD_INTERFACE:${include_dir}> 方式引用头文件，
+## 并安装到 install_dir (interface应用意味着在安装之后不会被其他应用引用)
+## usage:
+## z_target_include_public_build_interface(<target_name> <install_dir> <include_dir1> <include_dir2> ...)
+function(z_target_include_public_build_interface target_name install_dir)
+    foreach (include_dir ${ARGN})
+        z_install_includes(${install_dir} ${include_dir})
+        target_include_directories(${target_name} PUBLIC $<BUILD_INTERFACE:${include_dir}>)
+    endforeach ()
+endfunction()
+
+function(z_target_include_public_build_interface_default target_name)
+    z_target_include_public_build_interface(${target_name} "${CMAKE_INSTALL_INCLUDEDIR}" ${ARGN})
 endfunction()
 
 # import static library
@@ -353,6 +392,10 @@ function(z_embed_resources lib_name namespace whence)
     endforeach ()
 endfunction()
 
+function(z_embed_install_includes dstdir)
+    z_install_includes(${dstdir} ${CMAKE_CURRENT_BINARY_DIR}/_cmrc/include/)
+endfunction()
+
 # 将资源文件嵌入到 ${target}-rc 中，并链接到 ${target}
 function(z_embed_res_to_target target namespace whence)
     set(lib_name ${target}-rc)
@@ -363,11 +406,9 @@ function(z_embed_res_to_target target namespace whence)
     z_embed_resources(${lib_name} ${namespace} "${whence}" ${ARGN})
     if (${first_create})
         target_link_libraries(${target} PUBLIC ${lib_name})
+        z_install_target(${lib_name})
+        z_install_includes(${CMAKE_INSTALL_PREFIX}/include ${CMAKE_CURRENT_BINARY_DIR}/_cmrc/include/)
     endif ()
-endfunction()
-
-function(z_embed_install_includes dstdir libname)
-    z_install_includes(${CMAKE_INSTALL_INCLUDEDIR} ${CMAKE_CURRENT_BINARY_DIR}/_cmrc/include/)
 endfunction()
 
 # install target with namespace

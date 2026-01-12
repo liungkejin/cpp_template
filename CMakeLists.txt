@@ -39,32 +39,30 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/install/${ZPLATFORM}/${CMAK
 set(CMAKE_INSTALL_INCLUDEDIR ${CMAKE_INSTALL_PREFIX}/include)
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/libs/${ZTARGET_ARCH})
 
-# 引入并安装公共头文件
-z_target_include_public_interface(${MAIN_TARGET} "${PUBLIC_INCLUDE_DIR}/" "../include/${MAIN_TARGET}/public")
-z_install_includes(${CMAKE_INSTALL_INCLUDEDIR}/${MAIN_TARGET}/public "${PUBLIC_INCLUDE_DIR}/")
-# 引入并安装平台相关头文件
-z_target_include_public_interface(${MAIN_TARGET} "${PLATFORM_INCLUDE_DIR}/" "../include/${MAIN_TARGET}")
-z_install_includes(${CMAKE_INSTALL_INCLUDEDIR}/${MAIN_TARGET} "${PLATFORM_INCLUDE_DIR}/")
+# 引入并安装所有的头文件
+z_target_include_public_build_interface_default(${MAIN_TARGET}
+        ${PUBLIC_INCLUDE_DIR}/
+        ${PLATFORM_INCLUDE_DIR}/
+)
+# 指定安装后头文件的路径
+target_include_directories(${MAIN_TARGET} PUBLIC $<INSTALL_INTERFACE:include/>)
+
 
 include(${PLATFORM_DIR}/platform.cmake)
 include(${PUBLIC_DIR}/public.cmake)
 
 z_install_target(${MAIN_TARGET})
 z_install_files_default(
-        ${MAIN_DIR}/cmake/exports/z-import.cmake
         ${MAIN_DIR}/cmake/exports/z-functions.cmake
         ${MAIN_DIR}/cmake/CMakeRC.cmake
 )
 
+configure_file("${MAIN_DIR}/cmake/exports/z-import.cmake.in" "${CMAKE_BINARY_DIR}/z-import.cmake" @ONLY)
+install(FILES "${CMAKE_BINARY_DIR}/z-import.cmake" DESTINATION .)
 # 配置并安装 README.md
-configure_file(
-        "${MAIN_DIR}/cmake/README.md.in"
-        "${CMAKE_BINARY_DIR}/README.md"
-        @ONLY
-)
+configure_file("${MAIN_DIR}/cmake/exports/README.md.in" "${CMAKE_BINARY_DIR}/README.md" @ONLY)
 # 安装生成后的文件
-install(FILES "${CMAKE_BINARY_DIR}/README.md"
-        DESTINATION .)
+install(FILES "${CMAKE_BINARY_DIR}/README.md" DESTINATION .)
 
 # sample 目标
 add_executable(${MAIN_TARGET}-sample samples/src/main.cpp)
