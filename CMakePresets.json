@@ -192,12 +192,12 @@
       "displayName": "target-android",
       "hidden": true,
       "environment": {
-        "ANDROID_NDK_HOME": "$env{ANDROID_HOME}/ndk/18.1.5063045"
+        "ANDROID_NDK_HOME": "$env{ANDROID_HOME}/ndk/27.3.13750724"
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
         "ANDROID_TOOLCHAIN": "clang",
-        "ANDROID_PLATFORM": "android-21",
+        "ANDROID_PLATFORM": "android-24",
         "ANDROID_STL": "c++_shared",
         "ANDROID_ARM_NEON": {
           "type": "BOOL",
