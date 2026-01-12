@@ -69,7 +69,9 @@ CMakePresets.json
 
 <img src="./docs/screenshots/harmony-profile.png">
 
-## 其他工程如何使用
+## 使用方式
+
+### 安装后引用
 
 安装后的目录结构为
 ```text
@@ -81,23 +83,13 @@ install/
 |-- z-import.cmake
 ```
 
-### 导入库
-
-在其他工程中使用 `cpp_template` 库时，需要先导入库。
-可以在 `CMakeLists.txt` 中添加以下代码：
-
 ```cmake
 include(path/to/z-import.cmake)
-z_import_my_package(cpp_template)
-```
-
-### 链接库
-
-在其他工程中使用 `cpp_template` 库时，需要链接库。
-可以在 `CMakeLists.txt` 中添加以下代码：
-
-```cmake
 target_link_libraries(your_target cpp_template)
 ```
 
+### 子目录引用
 
+```cmake
+add_subdirectory(path/to/cpp_template)
+```

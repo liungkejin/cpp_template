@@ -8,7 +8,6 @@
 
 ```cmake
 include(path/to/z-import.cmake)
-z_import_my_package(@MAIN_TARGET@)
 ```
 
 ## 链接库
