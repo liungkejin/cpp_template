@@ -411,13 +411,25 @@ function(z_embed_res_to_target target namespace whence)
     endif ()
 endfunction()
 
+function(z_embed_res_to_target_private target namespace whence)
+    set(lib_name ${target}-rc)
+    set(first_create OFF)
+    if (NOT TARGET ${lib_name})
+        set(first_create ON)
+    endif ()
+    z_embed_resources(${lib_name} ${namespace} "${whence}" ${ARGN})
+    if (${first_create})
+        target_link_libraries(${target} PRIVATE ${lib_name})
+    endif ()
+endfunction()
+
 # install target with namespace
 # target_name: 目标名称
 # namespace: 命名空间 没有的话可以留空
 # target 会安装在 libs/${ZTARGET_ARCH}/${target_name}
 # cmake 会安装在 cmake/${target_name}-${ZTARGET_ARCH}-config.cmake
 function(z_install_target_with_namespace target_name namespace)
-    set(EXPORT_CONFIG ${target_name}-${ZTARGET_ARCH}-config)
+    set(EXPORT_CONFIG ${target_name}-config)
     install(TARGETS ${target_name}
             EXPORT ${EXPORT_CONFIG}
             DESTINATION libs/${ZTARGET_ARCH}
@@ -425,15 +437,21 @@ function(z_install_target_with_namespace target_name namespace)
     if (DEFINED namespace AND NOT "${namespace}" STREQUAL "")
         install(EXPORT ${EXPORT_CONFIG}
                 FILE ${EXPORT_CONFIG}.cmake
-                DESTINATION cmake
+                DESTINATION cmake/${ZTARGET_ARCH}
                 NAMESPACE ${namespace}::
         )
     else ()
         install(EXPORT ${EXPORT_CONFIG}
                 FILE ${EXPORT_CONFIG}.cmake
-                DESTINATION cmake
+                DESTINATION cmake/${ZTARGET_ARCH}
         )
     endif ()
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" "
+get_filename_component(ZZZ_ROOT_DIR \"\${CMAKE_CURRENT_LIST_FILE}\" DIRECTORY)
+set(pathname \${ZZZ_ROOT_DIR}/${ZTARGET_ARCH}/${target_name}-config)
+include(\${pathname}.cmake)
+    ")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" DESTINATION cmake)
 
     message(STATUS "z-install library: ${namespace} ${target_name} ${EXPORT_CONFIG}")
 endfunction()
@@ -441,4 +459,83 @@ endfunction()
 ## install target without namespace
 function(z_install_target target_name)
     z_install_target_with_namespace(${target_name} "")
+endfunction()
+
+# 安装导入的库
+# 依赖三个变量：MAIN_DIR, ZTARGET_ARCH, CMAKE_INSTALL_INCLUDEDIR
+# targetname: 目标名称
+function(z_install_imported_library target_name)
+    get_target_property(lib_type ${target_name} TYPE)
+    get_target_property(lib_include ${target_name} INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(lib_static ${target_name} IMPORTED_LOCATION)
+    get_target_property(lib_deplibs ${target_name} INTERFACE_LINK_LIBRARIES)
+    get_target_property(lib_definitions ${target_name} INTERFACE_COMPILE_DEFINITIONS)
+    if (lib_definitions MATCHES "NOTFOUND")
+        set(lib_definitions "")
+    endif ()
+    ## 安装头文件
+    install(DIRECTORY "${lib_include}/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    ## 安装库文件
+    install(FILES ${lib_static} DESTINATION libs/${ZTARGET_ARCH})
+    ## 获取 ${lib_static} 文件名
+    get_filename_component(lib_static_file_name ${lib_static} NAME)
+    set(EXPORT_LIB_NAME ${target_name})
+    set(EXPORT_LIB_FILE_NAME ${lib_static_file_name})
+    set(EXPORT_LIB_CONFIG_NAME ${target_name})
+    set(EXPORT_ARCH ${ZTARGET_ARCH})
+    # 判断是否是静态库
+    if (lib_type STREQUAL "STATIC_LIBRARY")
+        set(lib_type "STATIC")
+    elseif (lib_type STREQUAL "SHARED_LIBRARY")
+        set(lib_type "SHARED")
+    else ()
+        message(FATAL_ERROR "znative_install_imported_library unknown lib type: ${lib_type}")
+    endif ()
+    set(EXPORT_LIB_BODY "
+add_library(${target_name} ${lib_type} IMPORTED)
+set_target_properties(${target_name} PROPERTIES
+  INTERFACE_COMPILE_DEFINITIONS \"${lib_definitions}\"
+  INTERFACE_INCLUDE_DIRECTORIES \"\${_IMPORT_PREFIX}/include\"
+  INTERFACE_LINK_LIBRARIES \"${lib_deplibs}\"
+)
+    ")
+
+    #    message(STATUS "lib_type: ${lib_type} lib_static: ${lib_static} lib_deplibs: ${lib_deplibs} lib_definitions: ${lib_definitions}")
+    #    message(STATUS "EXPORT_LIB_NAME: ${EXPORT_LIB_NAME}")
+    #    message(STATUS "EXPORT_LIB_FILE_NAME: ${EXPORT_LIB_FILE_NAME}")
+    #    message(STATUS "EXPORT_LIB_CONFIG_NAME: ${EXPORT_LIB_CONFIG_NAME}")
+    #    message(STATUS "EXPORT_ARCH: ${EXPORT_ARCH}")
+    #    message(STATUS "EXPORT_LIB_BODY: ${EXPORT_LIB_BODY}")
+
+    # 生成 config.cmake
+    configure_file(
+            ${MAIN_DIR}/cmake/exports/template-config.cmake
+            ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config.cmake
+            @ONLY
+    )
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config.cmake DESTINATION cmake/${ZTARGET_ARCH})
+    # 生成 config-xxx.cmake
+    # 判断当前是否是 Debug
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # 生成 config-debug.cmake
+        configure_file(
+                ${MAIN_DIR}/cmake/exports/template-config-debug.cmake
+                ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config-debug.cmake
+                @ONLY
+        )
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config-debug.cmake DESTINATION cmake/${ZTARGET_ARCH})
+    else ()
+        configure_file(
+                ${MAIN_DIR}/cmake/exports/template-config-release.cmake
+                ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config-release.cmake
+                @ONLY
+        )
+        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config-release.cmake DESTINATION cmake/${ZTARGET_ARCH})
+    endif ()
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" "
+get_filename_component(ZZZ_ROOT_DIR \"\${CMAKE_CURRENT_LIST_FILE}\" DIRECTORY)
+set(pathname \${ZZZ_ROOT_DIR}/${ZTARGET_ARCH}/${target_name}-config)
+include(\${pathname}.cmake)
+    ")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" DESTINATION cmake)
 endfunction()

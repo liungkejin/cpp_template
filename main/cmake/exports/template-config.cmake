@@ -49,6 +49,7 @@ unset(_cmake_expected_targets)
 # Compute the installation prefix relative to this file.
 get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_FILE}" PATH)
 get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH) # 注意这里之所以会有两次，是因为相对根目录有两层
 if(_IMPORT_PREFIX STREQUAL "/")
     set(_IMPORT_PREFIX "")
 endif()
