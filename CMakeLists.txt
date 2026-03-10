@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
+if(POLICY CMP0177)
+    cmake_policy(SET CMP0177 NEW)
+endif()
+
 ##
 ## cpp 模版工程，注意修改 cpp_template 为你自己的工程名称
 ##

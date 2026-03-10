@@ -1,6 +1,9 @@
 ##
 # 注意 function 的 parent scope 只对上一层有用，不能多层
 ##
+if(POLICY CMP0177)
+    cmake_policy(SET CMP0177 NEW)
+endif()
 
 # 获取系统信息
 # out_name: 输出的系统名称 [ android | harmony | windows | linux | macos ]
@@ -18,7 +21,7 @@ function(z_get_sys_info out_name out_arch)
         set(ZHARMONY ON PARENT_SCOPE)
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
         set(${out_name} "ios" PARENT_SCOPE)
-        set(${out_arch} "arm64" PARENT_SCOPE)
+        set(${out_arch} "arm64-v8a" PARENT_SCOPE)
         set(ZIOS ON PARENT_SCOPE)
     else ()
         set(target_arch ${CMAKE_SYSTEM_PROCESSOR})
@@ -67,9 +70,11 @@ function(z_get_sys_info out_name out_arch)
 endfunction()
 
 # 获取系统信息
-z_get_sys_info(ZPLATFORM ZTARGET_ARCH)
-message(STATUS "====== ZPLATFORM: ${ZPLATFORM} ======")
-message(STATUS "====== ZTARGET_ARCH: ${ZTARGET_ARCH} ======")
+if (NOT DEFINED ZPLATFORM OR NOT DEFINED ZTARGET_ARCH)
+    z_get_sys_info(ZPLATFORM ZTARGET_ARCH)
+    message(STATUS "====== ZPLATFORM: ${ZPLATFORM} ======")
+    message(STATUS "====== ZTARGET_ARCH: ${ZTARGET_ARCH} ======")
+endif ()
 
 # 安装任意文件到 ${install_dir} 目录下
 # usage:
@@ -216,11 +221,12 @@ function(z_target_include_public_build_interface_default target_name)
 endfunction()
 
 # import static library
-function(z_import_static_library target_name lib_path libfilename deplibs)
-    #    message(STATUS "import static library: ${target_name}  ${lib_path}  ${libfilename}")
+# 导入静态库，指定库文件路径和包含目录
+# 示例: z_import_static_library("znative-static" "${CMAKE_CURRENT_SOURCE_DIR}/../znative-static.a" "${CMAKE_CURRENT_SOURCE_DIR}/../include" "")
+function(z_import_static_library target_name lib_file_path lib_include deplibs)
+    #    message(STATUS "import static library: ${target_name}  ${lib_file_path}  ${lib_include}")
     #    message(STATUS "depends library: ${deplibs}")
-    set(lib_include "${lib_path}/include/")
-    set(lib_static "${lib_path}/libs/${ZTARGET_ARCH}/${libfilename}")
+    set(lib_static "${lib_file_path}")
     if (NOT EXISTS ${lib_static})
         message(FATAL_ERROR "static library ${lib_static} not found")
     endif ()
@@ -234,11 +240,12 @@ function(z_import_static_library target_name lib_path libfilename deplibs)
 endfunction()
 
 # import shared library
-function(z_import_shared_library target_name lib_path libfilename deplibs)
-    #    message(STATUS "import shared library: ${target_name}  ${lib_path}  ${libfilename}")
+# 导入共享库，指定库文件路径和包含目录
+# 示例: z_import_shared_library("znative-shared" "${CMAKE_CURRENT_SOURCE_DIR}/../znative-shared.dll" "${CMAKE_CURRENT_SOURCE_DIR}/../include" "")
+function(z_import_shared_library target_name lib_file_path lib_include deplibs)
+    #    message(STATUS "import shared library: ${target_name}  ${lib_file_path}  ${lib_include}")
     #    message(STATUS "depends library: ${deplibs}")
-    set(lib_include "${lib_path}/include/")
-    set(lib_shared "${lib_path}/libs/${ZTARGET_ARCH}/${libfilename}")
+    set(lib_shared "${lib_file_path}")
     if (NOT EXISTS ${lib_shared})
         message(FATAL_ERROR "shared library ${lib_shared} not found")
     endif ()
@@ -423,6 +430,47 @@ function(z_embed_res_to_target_private target namespace whence)
     endif ()
 endfunction()
 
+function(z_write_find_cmake target_name cmakepath)
+    file(WRITE "${cmakepath}" "
+get_filename_component(ZZZ_ROOT_DIR \"\${CMAKE_CURRENT_LIST_FILE}\" DIRECTORY)
+if (NOT DEFINED ZTARGET_ARCH)
+    if (\${CMAKE_SYSTEM_NAME} STREQUAL \"Android\")
+        set(ZTARGET_ARCH \${CMAKE_ANDROID_ARCH_ABI})
+    elseif (\${CMAKE_SYSTEM_NAME} STREQUAL \"OHOS\")
+        set(ZTARGET_ARCH \${OHOS_ARCH})
+    elseif (\${CMAKE_SYSTEM_NAME} STREQUAL \"iOS\")
+        set(ZTARGET_ARCH \"arm64-v8a\")
+    else ()
+        if (CMAKE_OSX_ARCHITECTURES)
+            set(ZTARGET_ARCH \${CMAKE_OSX_ARCHITECTURES})
+        else ()
+            set(ZTARGET_ARCH \${CMAKE_HOST_SYSTEM_PROCESSOR})
+        endif ()
+        if (\${ZTARGET_ARCH} MATCHES \"amd\" OR \${ZTARGET_ARCH} MATCHES \"AMD\" OR \${ZTARGET_ARCH} MATCHES \"x86\")
+            # 如果是 macos 并且是包含 x86_64 和 arm64 架构，那么是 universal 架构
+            if (\${CMAKE_HOST_SYSTEM_NAME} STREQUAL \"Darwin\" AND \${ZTARGET_ARCH} MATCHES \"arm64\")
+                set(ZTARGET_ARCH \"universal\")
+            else ()
+                if (\${ZTARGET_ARCH} MATCHES \"64\")
+                    set(ZTARGET_ARCH \"x64\")
+                else ()
+                    set(ZTARGET_ARCH \"x86\")
+                endif ()
+            endif ()
+        elseif (\${ZTARGET_ARCH} MATCHES \"arm\")
+            if (\${ZTARGET_ARCH} MATCHES \"64\")
+                set(ZTARGET_ARCH \"arm64\")
+            else ()
+                set(ZTARGET_ARCH \"arm\")
+            endif ()
+        endif ()
+    endif ()
+endif ()
+set(pathname \${ZZZ_ROOT_DIR}/\${ZTARGET_ARCH}/${target_name}-config)
+include(\${pathname}.cmake)
+    ")
+endfunction()
+
 # install target with namespace
 # target_name: 目标名称
 # namespace: 命名空间 没有的话可以留空
@@ -446,12 +494,9 @@ function(z_install_target_with_namespace target_name namespace)
                 DESTINATION cmake/${ZTARGET_ARCH}
         )
     endif ()
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" "
-get_filename_component(ZZZ_ROOT_DIR \"\${CMAKE_CURRENT_LIST_FILE}\" DIRECTORY)
-set(pathname \${ZZZ_ROOT_DIR}/${ZTARGET_ARCH}/${target_name}-config)
-include(\${pathname}.cmake)
-    ")
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" DESTINATION cmake)
+    set(findpath "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake")
+    z_write_find_cmake(${target_name} ${findpath})
+    install(FILES ${findpath} DESTINATION cmake)
 
     message(STATUS "z-install library: ${namespace} ${target_name} ${EXPORT_CONFIG}")
 endfunction()
@@ -473,8 +518,13 @@ function(z_install_imported_library target_name)
     if (lib_definitions MATCHES "NOTFOUND")
         set(lib_definitions "")
     endif ()
+    if (lib_deplibs MATCHES "NOTFOUND")
+        set(lib_deplibs "")
+    endif ()
     ## 安装头文件
-    install(DIRECTORY "${lib_include}/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    if (NOT lib_include MATCHES "NOTFOUND")
+        install(DIRECTORY "${lib_include}/" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    endif ()
     ## 安装库文件
     install(FILES ${lib_static} DESTINATION libs/${ZTARGET_ARCH})
     ## 获取 ${lib_static} 文件名
@@ -532,10 +582,7 @@ set_target_properties(${target_name} PROPERTIES
         )
         install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_LIB_CONFIG_NAME}-config-release.cmake DESTINATION cmake/${ZTARGET_ARCH})
     endif ()
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" "
-get_filename_component(ZZZ_ROOT_DIR \"\${CMAKE_CURRENT_LIST_FILE}\" DIRECTORY)
-set(pathname \${ZZZ_ROOT_DIR}/${ZTARGET_ARCH}/${target_name}-config)
-include(\${pathname}.cmake)
-    ")
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake" DESTINATION cmake)
+    set(findpath "${CMAKE_CURRENT_BINARY_DIR}/Find${target_name}.cmake")
+    z_write_find_cmake(${target_name} ${findpath})
+    install(FILES ${findpath} DESTINATION cmake)
 endfunction()
