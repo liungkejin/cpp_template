@@ -515,8 +515,16 @@ function(z_install_imported_library target_name)
     get_target_property(lib_static ${target_name} IMPORTED_LOCATION)
     get_target_property(lib_deplibs ${target_name} INTERFACE_LINK_LIBRARIES)
     get_target_property(lib_definitions ${target_name} INTERFACE_COMPILE_DEFINITIONS)
+    get_target_property(lib_compile_options ${target_name} INTERFACE_COMPILE_OPTIONS)
+    get_target_property(lib_link_options ${target_name} INTERFACE_LINK_OPTIONS)
     if (lib_definitions MATCHES "NOTFOUND")
         set(lib_definitions "")
+    endif ()
+    if (lib_compile_options MATCHES "NOTFOUND")
+        set(lib_compile_options "")
+    endif ()
+    if (lib_link_options MATCHES "NOTFOUND")
+        set(lib_link_options "")
     endif ()
     if (lib_deplibs MATCHES "NOTFOUND")
         set(lib_deplibs "")
@@ -545,8 +553,10 @@ function(z_install_imported_library target_name)
 add_library(${target_name} ${lib_type} IMPORTED)
 set_target_properties(${target_name} PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS \"${lib_definitions}\"
+  INTERFACE_COMPILE_OPTIONS \"${lib_compile_options}\"
   INTERFACE_INCLUDE_DIRECTORIES \"\${_IMPORT_PREFIX}/include\"
   INTERFACE_LINK_LIBRARIES \"${lib_deplibs}\"
+  INTERFACE_LINK_OPTIONS \"${lib_link_options}\"
 )
     ")
 
