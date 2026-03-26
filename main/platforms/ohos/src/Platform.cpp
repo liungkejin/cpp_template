@@ -5,5 +5,5 @@
 #include "Platform.h"
 
 std::string Platform::name() {
-    return "harmony";
+    return "ohos";
 }

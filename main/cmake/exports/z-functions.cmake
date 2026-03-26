@@ -6,8 +6,8 @@ if(POLICY CMP0177)
 endif()
 
 # 获取系统信息
-# out_name: 输出的系统名称 [ android | harmony | windows | linux | macos ]
-# out_arch: 输出的系统架构 [ x86 | x64 | arm | arm64 | universal ]
+# out_name: 输出的系统名称 [ android | ohos | windows | linux | macos ]
+# out_arch: 输出的系统架构 [ x86 | x64 | arm | arm64 | arm64-v8a | armeabi-v7a | universal ]
 # 平台判断可以使用 ZANDROID | ZOHOS | ZIOS | ZLINUX | ZMACOS | ZWINDOWS | ZDESKTOP
 function(z_get_sys_info out_name out_arch)
     if (${CMAKE_SYSTEM_NAME} STREQUAL "Android")
@@ -15,10 +15,11 @@ function(z_get_sys_info out_name out_arch)
         set(${out_arch} ${CMAKE_ANDROID_ARCH_ABI} PARENT_SCOPE)
         set(ZANDROID ON PARENT_SCOPE)
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL "OHOS")
-        set(${out_name} "harmony" PARENT_SCOPE)
+        set(${out_name} "ohos" PARENT_SCOPE)
         set(${out_arch} ${OHOS_ARCH} PARENT_SCOPE)
         set(ZOHOS ON PARENT_SCOPE)
         set(ZHARMONY ON PARENT_SCOPE)
+        set(ZHARMONYOS ON PARENT_SCOPE)
     elseif (${CMAKE_SYSTEM_NAME} STREQUAL "iOS")
         set(${out_name} "ios" PARENT_SCOPE)
         set(${out_arch} "arm64-v8a" PARENT_SCOPE)

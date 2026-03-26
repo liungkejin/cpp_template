@@ -15,7 +15,7 @@ main/
     |-- windows/
     |-- linux/
     |-- ios/
-    |-- harmony/
+    |-- ohos/
 |-- public/
     |-- include/
     |-- libs/
@@ -41,6 +41,7 @@ CMakePresets.json
 
 ### Android
 <img src="./docs/screenshots/android-profile.png">
+
 安卓的 `profile` 默认使用 `ndk 27.3.13750724`, `target api` 为 24,
 如果想要修改可以在 `CMakePresets.json` 中修改
 
@@ -65,7 +66,7 @@ CMakePresets.json
     },
 ```
 
-#### Harmony
+#### HarmonyOS
 
 <img src="./docs/screenshots/harmony-profile.png">
 
