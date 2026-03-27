@@ -69,5 +69,6 @@ configure_file("${MAIN_DIR}/cmake/exports/README.md.in" "${CMAKE_BINARY_DIR}/REA
 install(FILES "${CMAKE_BINARY_DIR}/README.md" DESTINATION .)
 
 # sample 目标
-add_executable(${MAIN_TARGET}-sample samples/src/main.cpp)
-target_link_libraries(${MAIN_TARGET}-sample PRIVATE ${MAIN_TARGET})
+if (ZDESKTOP)
+    add_subdirectory(samples/local)
+endif ()
