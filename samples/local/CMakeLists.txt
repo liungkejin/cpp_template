@@ -34,7 +34,6 @@ set(SAMPLE_SOURCES
         ${SAMPLE_SOURCES}
         ${SAMPLE_SRC_DIR}/main.cpp
         ${SAMPLE_SRC_DIR}/MainApp.cpp
-        ${SAMPLE_SRC_DIR}/MainWindow.cpp
 )
 
 set(TARGET_NAME local-sample)
