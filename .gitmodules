@@ -1,0 +1,3 @@
+[submodule "samples/local/libs/thorvg"]
+	path = samples/local/libs/thorvg
+	url = https://github.com/liungkejin/thorvg.git

@@ -3,10 +3,7 @@ if(POLICY CMP0177)
     cmake_policy(SET CMP0177 NEW)
 endif()
 
-##
-## cpp 模版工程，注意修改 cpp_template 为你自己的工程名称
-##
-project(cpp_template)
+project(thorvg-test)
 
 set(CMAKE_CXX_STANDARD 17)
 

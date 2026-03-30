@@ -34,6 +34,7 @@ set(SAMPLE_SOURCES
         ${SAMPLE_SOURCES}
         ${SAMPLE_SRC_DIR}/main.cpp
         ${SAMPLE_SRC_DIR}/MainApp.cpp
+        ${SAMPLE_SRC_DIR}/ThorvgTestWindow.cpp
 )
 
 set(TARGET_NAME local-sample)
@@ -66,6 +67,19 @@ else ()
     set(SAMPLE_LIBS ${SAMPLE_LIBS} OpenGL::GL)
     target_compile_definitions(${TARGET_NAME} PRIVATE -DGL_SILENCE_DEPRECATION)
 endif ()
+
+set(thorvgpath ${SAMPLE_LIBS_DIR}/thorvg/build/install/${ZPLATFORM}/${ZTARGET_ARCH})
+if(NOT EXISTS ${thorvgpath}/lib/libthorvg-1.a)
+    message(STATUS "Building thorvg...")
+    execute_process(
+            COMMAND ${SAMPLE_LIBS_DIR}/thorvg/build.sh local static release
+            WORKING_DIRECTORY ${SAMPLE_LIBS_DIR}/thorvg
+            OUTPUT_VARIABLE OUTPUT
+            ERROR_VARIABLE ERROR
+    )
+endif ()
+z_import_static_library(thorvg ${thorvgpath}/lib/libthorvg-1.a ${thorvgpath}/include "")
+set(SAMPLE_LIBS ${SAMPLE_LIBS} thorvg)
 
 target_link_libraries(${TARGET_NAME} PRIVATE
         ${MAIN_TARGET}

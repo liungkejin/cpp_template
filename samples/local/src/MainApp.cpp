@@ -4,6 +4,7 @@
 
 #include "MainApp.h"
 #include "IWindow.h"
+#include "ThorvgTestWindow.h"
 
 // Dear ImGui: standalone example application for GLFW + OpenGL 3, using programmable pipeline
 // (GLFW is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan/Metal graphics context creation, etc.)
@@ -240,7 +241,6 @@ void MainWindow::onPreRender(ImGuiIO& io, int glWidth, int glHeight) {
 }
 
 void MainWindow::onRenderImgui(ImGuiIO &io, int glWidth, int glHeight) {
-
     auto windowWidth = io.DisplaySize.x;
     auto windowHeight = io.DisplaySize.y;
 
@@ -260,6 +260,10 @@ void MainWindow::onRenderImgui(ImGuiIO &io, int glWidth, int glHeight) {
     ImGui::Text("应用帧率 (%.1f FPS)", io.Framerate);
     ImGui::Checkbox("显示 demo window", &g_show_demo_window);
 
+    static bool g_show_thorvg_test_window = false;
+    if (ImGui::Checkbox("Thorvg Test", &g_show_thorvg_test_window)) {
+        checkAddOrRemoveWindow<ThorvgTestWindow>(g_show_thorvg_test_window, "ThorvgTestWindow", io, ImVec2(windowWidth, windowHeight));
+    }
     ImGui::End();
 
     for (const auto& [fst, snd] : g_all_windows) {
