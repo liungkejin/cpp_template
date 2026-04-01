@@ -39,4 +39,4 @@ z_import_static_library(thorvg ${thorvgpath}/lib/libthorvg-1.a ${thorvgpath}/inc
 set(SAMPLE_LIBS ${SAMPLE_LIBS} thorvg)
 ```
 
-It is recommended to open and run this project using CLion, or you can directly run run.sh (only supports macOS).
+It is recommended to open and run this project using CLion, or you can directly run `./run.sh` (only supports macOS).
