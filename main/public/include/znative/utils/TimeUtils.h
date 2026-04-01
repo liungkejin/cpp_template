@@ -133,8 +133,8 @@ public:
     }
 private:
     int64_t m_start_us = 0;
-    int m_count = 0;
-    int m_sum_cost_us = 0;
+    int64_t m_count = 0;
+    int64_t m_sum_cost_us = 0;
 };
 
 class FPSCounter {

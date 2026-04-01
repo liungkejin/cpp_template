@@ -20,7 +20,7 @@ CMRC_DECLARE(local);
 
 ZImage decodeImage() {
     auto fs = cmrc::local::get_filesystem();
-    auto file = fs.open("assets/images/lyf.jpg");
+    auto file = fs.open("assets/images/test.jpg");
     tvg::Picture *p = tvg::Picture::gen();
     if (p->load(file.begin(), file.size(), "jpg", nullptr) != tvg::Result::Success) {
         tvg::Paint::rel(p);
@@ -55,6 +55,7 @@ static ZImage test_image;
 static ZImage sw_target;
 static znative::ImageTexture sw_texture;
 
+static znative::ImageTexture gl_texture;
 static znative::Framebuffer gl_target;
 
 void ThorvgTestWindow::onInit(ImGuiIO &io, ImVec2 windowSize) {
@@ -82,15 +83,14 @@ void ThorvgTestWindow::onClose() {
 }
 
 void ThorvgTestWindow::onRenderImgui(ImGuiIO &io, ImVec2 windowSize) {
-    static bool useGlCanvas = false;
+    static bool useGlCanvas = true;
     ImGui::Checkbox("GlCanvas", &useGlCanvas);
     static bool glNoCache = false;
     static int glMsaaSamples = 0;
+    static bool glDrawTexture = false;
     if (useGlCanvas) {
-        ImGui::Checkbox("Disable Shader Cache", &glNoCache);
-        if (glNoCache) {
-            tvg::Initializer::init(4);
-        }
+        ImGui::Checkbox("Disable Gl Cache", &glNoCache);
+        ImGui::Checkbox("tvgPicture Load Texture", &glDrawTexture);
 
         static int glMsaaSamplesIndex = 0;
         static const char *MsaaSamplesList[3] = {
@@ -104,21 +104,34 @@ void ThorvgTestWindow::onRenderImgui(ImGuiIO &io, ImVec2 windowSize) {
         }
     }
 
-    auto startMs = znative::TimeUtils::nowMs();
+    znative::CostMeter costMeter;
+    costMeter.reset();
+
     tvg::Canvas *canvas = nullptr;
     if (useGlCanvas) {
+        if (glNoCache) {
+            tvg::Initializer::term();
+            tvg::Initializer::init(4);
+        }
+
         tvg::GlCanvas* glcanvas = tvg::GlCanvas::gen();
-        glcanvas->target(nullptr, nullptr, nullptr,
-            gl_target.id(), gl_target.texWidth(), gl_target.texHeight(), tvg::ColorSpace::ABGR8888S, glMsaaSamples);
+        glcanvas->target(gl_target.id(), gl_target.texWidth(), gl_target.texHeight(), glMsaaSamples);
         canvas = glcanvas;
     } else {
         tvg::SwCanvas* swcanvas = tvg::SwCanvas::gen();
-        swcanvas->target((uint32_t *)sw_target.data.get(), sw_target.width, sw_target.width, sw_target.height, tvg::ColorSpace::ABGR8888);
+        swcanvas->target((uint32_t *)sw_target.data.get(), sw_target.width,
+            sw_target.width, sw_target.height, tvg::ColorSpace::ABGR8888);
         canvas = swcanvas;
     }
 
     tvg::Picture *p = tvg::Picture::gen();
-    p->load((uint32_t *)test_image.data.get(), test_image.width, test_image.height, tvg::ColorSpace::ABGR8888);
+    if (glDrawTexture) {
+        auto tex = gl_texture.update((uint8_t *)test_image.data.get(), test_image.width, test_image.height);
+        p->load(tex->id(), tex->width(), tex->height());
+    } else {
+        p->load((uint32_t *)test_image.data.get(), test_image.width, test_image.height, tvg::ColorSpace::ABGR8888);
+    }
+
     canvas->add(p);
     // Generate a shape
     {
@@ -152,6 +165,7 @@ void ThorvgTestWindow::onRenderImgui(ImGuiIO &io, ImVec2 windowSize) {
         // Add the shape to the canvas
         canvas->add(path);
     }
+
     {
         // Generate a shape
         auto circle = tvg::Shape::gen();
@@ -244,14 +258,10 @@ void ThorvgTestWindow::onRenderImgui(ImGuiIO &io, ImVec2 windowSize) {
     canvas->draw(true);
     canvas->sync();
 
-    _INFO("cost ms: %lld", (znative::TimeUtils::nowMs() - startMs));
-
     delete canvas;
-    if (glNoCache) {
-        auto res = tvg::Initializer::term();
-        _INFO("termrm res: %d", (int) res);
-    }
 
+    auto averageUs = costMeter.averageUs(100);
+    ImGui::Text("canvas average cost: %lld us", averageUs);
 
     std::shared_ptr<znative::Texture> texture;
     if (useGlCanvas) {

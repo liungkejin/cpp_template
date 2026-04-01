@@ -66,12 +66,21 @@ public:
         });
     }
 
-    static std::shared_ptr<Texture2D> create(GLuint width, GLuint height, const void *pixels, const TexParams &params = {}, int unpackRowLength = -1, int unpackAlignment = -1) {
+    /**
+     * 创建并更新纹理
+     * @param width 纹理宽度
+     * @param height 纹理高度
+     * @param pixels 纹理像素数据
+     * @param bytesPerRow 每行字节数, 如果为 -1, 则使用默认对齐
+     * @param params 纹理参数
+     * @return 创建的纹理对象
+     */
+    static std::shared_ptr<Texture2D> create(GLuint width, GLuint height, const void *pixels, const TexParams &params = {}, int bytesPerRow = -1) {
         auto ptr = std::shared_ptr<Texture2D>(new Texture2D(width, height, params), [](Texture2D *tex) {
             tex->release();
             delete tex;
         });
-        ptr->update(pixels, unpackRowLength, unpackAlignment);
+        ptr->update(pixels, bytesPerRow);
         return ptr;
     }
 
@@ -140,14 +149,13 @@ public:
     /**
      * 更新2D纹理像素数据
      * @param pixels 纹理像素数据
-     * @param unpackRowLength 解包行长度字节数, 默认-1，表示为0
-     * @param unpackAlignment 解包对齐字节数, 默认-1，根据纹理格式自动计算对齐字节数
+     * @param bytesPerRow 解包行长度字节数, 默认-1，表示为0
      */
-    void update(const void *pixels, int unpackRowLength = -1, int unpackAlignment = -1) {
+    void update(const void *pixels, int bytesPerRow = -1) {
         if (valid()) {
-            updateTexture2D(m_id, m_width, m_height, m_params, pixels, unpackRowLength, unpackAlignment);
+            updateTexture2D(m_id, m_width, m_height, m_params, pixels, bytesPerRow);
         } else {
-            m_id = genTexture2D(m_width, m_height, m_params, pixels, unpackRowLength, unpackAlignment);
+            m_id = genTexture2D(m_width, m_height, m_params, pixels, bytesPerRow);
             _INFO("Texture2D created: %d, %d, %d", m_id, m_width, m_height);
         }
     }
@@ -158,17 +166,16 @@ public:
      * @param pixels 纹理像素数据
      * @param width 纹理宽度
      * @param height 纹理高度
-     * @param unpackRowLength 解包行长度字节数, 默认-1，表示为0
-     * @param unpackAlignment 解包对齐字节数, 默认-1，根据纹理格式自动计算对齐字节数
+     * @param bytesPerRow 解包行长度字节数, 默认-1，表示没有 padding
      */
-    void checkUpdate(const void *pixels, int width, int height, int unpackRowLength = -1, int unpackAlignment = -1) {
+    void checkUpdate(const void *pixels, int width, int height, int bytesPerRow = -1) {
         if (this->m_width != width || this->m_height != height) {
             release();
             m_width = width;
             m_height = height;
         }
         if (width > 0 && height > 0) {
-            this->update(pixels, unpackRowLength, unpackAlignment);
+            this->update(pixels, bytesPerRow);
         }
     }
 
@@ -195,16 +202,12 @@ public:
      * @param height 纹理高度
      * @param params 纹理参数
      * @param pixels 纹理像素数据
-     * @param unpackRowLength 解包行长度
-     * @param unpackAlignment 解包对齐字节数
+     * @param bytesPerRow 解包行长度字节数, 默认-1，表示没有 padding
      */
-    static void updateTexture2D(GLuint id, GLint width, GLint height, const TexParams &params, const void *pixels, int unpackRowLength = -1, int unpackAlignment = -1) {
+    static void updateTexture2D(GLuint id, GLint width, GLint height, const TexParams &params, const void *pixels, int bytesPerRow = -1) {
         glBindTexture(GL_TEXTURE_2D, id);
         int originalAlignment = 0, originalRowLength = 0;
-        setFormatUnpackParameter(params.format, unpackRowLength, unpackAlignment, originalRowLength, originalAlignment);
-        if (unpackAlignment > 0 && (width * height)%unpackAlignment != 0) {
-            _ERROR("Error update texture, size not divisible by alignment, id: %u, width: %d, height: %d, alignment: %d", id, width, height, unpackAlignment);
-        }
+        setFormatUnpackParameter(params.format, bytesPerRow, originalRowLength, originalAlignment);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, params.format, params.type, pixels);
         restoreUnpackParameter(originalRowLength, originalAlignment);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -216,11 +219,10 @@ public:
      * @param height 纹理高度
      * @param params 纹理参数
      * @param pixels 纹理像素数据
-     * @param unpackRowLength 解包行长度
-     * @param unpackAlignment 解包对齐 -1 时会根据格式默认对齐字节数
+     * @param bytesPerRow 解包行长度字节数, 默认-1，表示没有 padding
      * @return 纹理ID
      */
-    static GLuint genTexture2D(GLint width, GLint height, const TexParams &params, const void *pixels, int unpackRowLength = -1, int unpackAlignment = -1) {
+    static GLuint genTexture2D(GLint width, GLint height, const TexParams &params, const void *pixels, int bytesPerRow = -1) {
         GLuint texture;
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -229,10 +231,7 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params.wrapS);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params.wrapT);
         int originalAlignment = 0, originalRowLength = 0;
-        setFormatUnpackParameter(params.format, unpackRowLength, unpackAlignment, originalRowLength, originalAlignment);
-        if (unpackAlignment > 0 && (width * height)%unpackAlignment != 0) {
-            _ERROR("Error generate texture, size not divisible by alignment, id: %u, width: %d, height: %d, alignment: %d", texture, width, height, unpackAlignment);
-        }
+        setFormatUnpackParameter(params.format, bytesPerRow, originalRowLength, originalAlignment);
         glTexImage2D(GL_TEXTURE_2D, params.level, params.internalFormat, width, height, params.border, params.format,
                      params.type, pixels);
         restoreUnpackParameter(originalRowLength, originalAlignment);
@@ -243,37 +242,33 @@ public:
     /**
      * 设置纹理解包参数
      * @param format 纹理格式
-     * @param rowLength 原始行长度，< 1 表示设置为 0
-     * @param alignment 解包对齐字节数
+     * @param bytesPerRow 解包行长度字节数，默认-1，表示没有 padding
      * @param originalRowLength 原始行长度， 如果不需要 restore 返回 -1
      * @param originalAlignment 返回之前设置的对齐字节数, 如果不需要 restore 返回 -1
      */
     static void setFormatUnpackParameter(
-        int format, int& rowLength, int& alignment,
-        int &originalRowLength, int &originalAlignment) {
+        int format, int bytesPerRow, int &originalRowLength, int &originalAlignment) {
         originalAlignment = -1;
         glGetIntegerv(GL_UNPACK_ALIGNMENT, &originalAlignment);
-        if (alignment < 1) {
-            alignment = defaultFormatAlignment(format);
-        }
-        // 核心：设置 1 字节对齐（解决宽度不被4整除的问题）
-        if (originalAlignment != alignment) {
-            glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
-        } else {
-            // 不需要 restore
-            originalAlignment = -1;
-        }
-
         originalRowLength = -1;
         glGetIntegerv(GL_UNPACK_ROW_LENGTH, &originalRowLength);
-        if (rowLength > 0 && rowLength != originalRowLength) {
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
-        } else if (originalRowLength > 0) {
+
+        int alignment = defaultFormatAlignment(format);
+        if (bytesPerRow < 1) {
+            // 不需要设置行长度
             // 避免影响我们的纹理读取
             glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
         } else {
-            // 不需要 restore
-            originalRowLength = -1;
+            if (bytesPerRow % alignment != 0) {
+                // 设置 alignment = 1
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, bytesPerRow);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            } else {
+                int rowLength = bytesPerRow / alignment;
+                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
+                glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+            }
         }
     }
 
@@ -348,7 +343,7 @@ public:
             m_tex = Texture2D::create(width, height, params);
         }
 
-        m_tex->update(data, bytesPerRow, -1);
+        m_tex->update(data, bytesPerRow);
         m_tex_need_update = false;
         return m_tex;
     }
@@ -373,7 +368,7 @@ public:
             m_tex = Texture2D::create(m_next_width, m_next_height, m_next_params);
             m_tex_need_update = true;
         }
-        m_tex->update(m_next_img.data(), m_next_bytesPerRow, -1);
+        m_tex->update(m_next_img.data(), m_next_bytesPerRow);
         m_tex_need_update = false;
         return m_tex;
     }

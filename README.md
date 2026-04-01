@@ -1,96 +1,42 @@
-# 跨平台 C++ 项目模板
+# thorvg-test
 
-## 项目结构
+This project is to test the performance impact of caching GlProgram on GlCanvas in real-time rendering scenarios, and also to test two newly added interfaces:
+
+* `tvg::Picture::load(uint32_t textureId, uint32_t width, uint32_t height)`
+* `tvg::GlCanvas::target(int32_t fboId, uint32_t w, uint32_t h, int msaaSamples)`
+
+## Project Structure
 
 ```text
-main/
-|-- cmake/
-|-- platforms/
-    |-- macos/
-        |-- include/
-        |-- libs/
-        |-- src/
-        |-- platform.cmake
-    |-- android/
-    |-- windows/
-    |-- linux/
-    |-- ios/
-    |-- ohos/
-|-- public/
-    |-- include/
+samples/local/
+    |-- assets/
     |-- libs/
+         |-- glfw-3.4/
+         |-- imgui-1.92.5/
+         |-- thorvg/
     |-- src/
-    |-- public.cmake
-samples/
+        |-- ThorvgTestWindow.cpp
+    CMakeLists.txt
 CMakeLists.txt
 CMakePresets.json
+run.sh
 ```
 
-## 项目配置
-
-本项目使用 `CLion` 作为开发工具, `CMake` 作为构建工具.
-首先先配置 `CMake` 工具链，分别配置 `HarmonyOS` 和 `Android` 的 `CMake` 工具链。
-最开始打开项目时，IDE会读取 `CMakePresets.json`, 你会看到 `profile` 中有很多的预设，
-我们只需要复制其中我们想要的预设，然后选择正确的 `toolchain` 最后启用就可以,
-如果没有配置 `toolchain`, 则需要先配置 `toolchain`
-
-<img src="./docs/screenshots/android-toolchain.png">
-<img src="./docs/screenshots/harmony-toolchain.png">
-
-再配置 profile。
-
-### Android
-<img src="./docs/screenshots/android-profile.png">
-
-安卓的 `profile` 默认使用 `ndk 27.3.13750724`, `target api` 为 24,
-如果想要修改可以在 `CMakePresets.json` 中修改
-
-```
-    {
-      "name": "target-android",
-      "displayName": "target-android",
-      "hidden": true,
-      "environment": {
-        "ANDROID_NDK_HOME": "$env{ANDROID_HOME}/ndk/27.3.13750724"
-      },
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
-        "ANDROID_TOOLCHAIN": "clang",
-        "ANDROID_PLATFORM": "android-24",
-        "ANDROID_STL": "c++_shared",
-        "ANDROID_ARM_NEON": {
-          "type": "BOOL",
-          "value": "ON"
-        }
-      }
-    },
-```
-
-#### HarmonyOS
-
-<img src="./docs/screenshots/harmony-profile.png">
-
-## 使用方式
-
-### 安装后引用
-
-安装后的目录结构为
-```text
-install/
-|-- cmake/
-|-- include/
-|-- libs/
-|-- z-functions.cmake
-|-- z-import.cmake
-```
+The test project is implemented based on imgui/glfw with an OpenGL backend and built using cmake. (thorvg is built using meson, but I am not very familiar with meson.) Therefore, thorvg is compiled first before building the project. So, if any modifications are made to the thorvg submodule, please delete the `thorvg/build/install` directory first and then recompile the project.
 
 ```cmake
-include(path/to/z-import.cmake)
-target_link_libraries(your_target cpp_template)
+set(thorvgpath ${SAMPLE_LIBS_DIR}/thorvg/build/install/${ZPLATFORM}/${ZTARGET_ARCH})
+if(NOT EXISTS ${thorvgpath}/lib/libthorvg-1.a)
+    message(STATUS "Building thorvg...")
+    execute_process(
+            COMMAND ${SAMPLE_LIBS_DIR}/thorvg/build.sh local static release
+            WORKING_DIRECTORY ${SAMPLE_LIBS_DIR}/thorvg
+            OUTPUT_VARIABLE OUTPUT
+            ERROR_VARIABLE ERROR
+    )
+endif ()
+z_import_static_library(thorvg ${thorvgpath}/lib/libthorvg-1.a ${thorvgpath}/include "")
+set(SAMPLE_LIBS ${SAMPLE_LIBS} thorvg)
 ```
 
-### 子目录引用
-
-```cmake
-add_subdirectory(path/to/cpp_template)
-```
+It is recommended to open and run this project using CLion, or you can directly run run.sh (only supports macOS).
