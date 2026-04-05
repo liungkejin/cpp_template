@@ -125,7 +125,7 @@ void ThorvgTestWindow::onRenderImgui(ImGuiIO &io, ImVec2 windowSize) {
     }
 
     tvg::Picture *p = tvg::Picture::gen();
-    if (glDrawTexture) {
+    if (useGlCanvas && glDrawTexture) {
         auto tex = gl_texture.update((uint8_t *)test_image.data.get(), test_image.width, test_image.height);
         p->load(tex->id(), tex->width(), tex->height());
     } else {

@@ -102,7 +102,7 @@ public:
         });
     }
 
-    static int defaultFormatAlignment(GLenum format) {
+    static int defaultFormatBytes(GLenum format) {
         switch (format) {
 #ifdef GL_RED
         case GL_RED:
@@ -207,7 +207,7 @@ public:
     static void updateTexture2D(GLuint id, GLint width, GLint height, const TexParams &params, const void *pixels, int bytesPerRow = -1) {
         glBindTexture(GL_TEXTURE_2D, id);
         int originalAlignment = 0, originalRowLength = 0;
-        setFormatUnpackParameter(params.format, bytesPerRow, originalRowLength, originalAlignment);
+        setFormatUnpackParameter(width, params.format, bytesPerRow, originalRowLength, originalAlignment);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, params.format, params.type, pixels);
         restoreUnpackParameter(originalRowLength, originalAlignment);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -231,7 +231,7 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, params.wrapS);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, params.wrapT);
         int originalAlignment = 0, originalRowLength = 0;
-        setFormatUnpackParameter(params.format, bytesPerRow, originalRowLength, originalAlignment);
+        setFormatUnpackParameter(width, params.format, bytesPerRow, originalRowLength, originalAlignment);
         glTexImage2D(GL_TEXTURE_2D, params.level, params.internalFormat, width, height, params.border, params.format,
                      params.type, pixels);
         restoreUnpackParameter(originalRowLength, originalAlignment);
@@ -241,35 +241,46 @@ public:
 
     /**
      * 设置纹理解包参数
+     * GL_UNPACK_ALIGNMENT是一次读取几个字节，和数据类型没有关系
+     * GL_UNPACK_ROW_LENGTH 是一行的像素(不是字节)
+     * @param width 像素宽度（不是字节宽）
      * @param format 纹理格式
      * @param bytesPerRow 解包行长度字节数，默认-1，表示没有 padding
      * @param originalRowLength 原始行长度， 如果不需要 restore 返回 -1
      * @param originalAlignment 返回之前设置的对齐字节数, 如果不需要 restore 返回 -1
      */
     static void setFormatUnpackParameter(
-        int format, int bytesPerRow, int &originalRowLength, int &originalAlignment) {
+        int width, int format, int bytesPerRow, int &originalRowLength, int &originalAlignment) {
         originalAlignment = -1;
         glGetIntegerv(GL_UNPACK_ALIGNMENT, &originalAlignment);
         originalRowLength = -1;
         glGetIntegerv(GL_UNPACK_ROW_LENGTH, &originalRowLength);
 
-        int alignment = defaultFormatAlignment(format);
+        int rowLength = 0;
+        int alignment = 1;
+        int pixelBytes = defaultFormatBytes(format);
+        int defaultBytesPerRow = width * pixelBytes;
         if (bytesPerRow < 1) {
-            // 不需要设置行长度
-            // 避免影响我们的纹理读取
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+            bytesPerRow = defaultBytesPerRow;
+        }
+
+        if (bytesPerRow%4 == 0) {
+            alignment = 4;
+        } else if (bytesPerRow%2 == 0) {
+            alignment = 2;
         } else {
-            if (bytesPerRow % alignment != 0) {
-                // 设置 alignment = 1
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, bytesPerRow);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            } else {
-                int rowLength = bytesPerRow / alignment;
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+            alignment = 1;
+        }
+        if (bytesPerRow != defaultBytesPerRow) {
+            // 有 padding
+            rowLength = bytesPerRow / pixelBytes;
+            if (rowLength%alignment != 0) {
+                alignment = 1;
             }
         }
+
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
     }
 
     static void restoreUnpackParameter(int rowLength, int alignment) {
@@ -304,7 +315,7 @@ public:
      */
     void put(const uint8_t * data, int width, int height,
              const TexParams& params = {}, int bytesPerRow = -1) {
-        int channels = Texture2D::defaultFormatAlignment(params.format);
+        int channels = Texture2D::defaultFormatBytes(params.format);
 
         std::lock_guard<std::mutex> lock(m_put_mutex);
         int dataSize = width * height * channels;
